@@ -36,6 +36,7 @@ class NeuralNetwork_2Layer():
         self.outputSize = outputSize
         self.neuronsPerLayer = neuronsPerLayer
         self.lr = learningRate
+        print("assigning weights")
         self.W1 = np.random.randn(self.inputSize, self.neuronsPerLayer)
         self.W2 = np.random.randn(self.neuronsPerLayer, self.outputSize)
 
@@ -56,18 +57,24 @@ class NeuralNetwork_2Layer():
     # Training with backpropagation.
     def train(self, xVals, yVals, epochs = 100000, minibatches = True, mbs = 100):
         print("Training NN")
+        X = xVals
+        Y = yVals
         if minibatches:
             xBatch = self.__batchGenerator(xVals,mbs)
+            w1Batch = self.__batchGenerator(self.W1,mbs)
+            w2Batch = self.__batchGenerator(self.W2,mbs)
             yBatch = self.__batchGenerator(yVals,mbs) 
-            X = next(xBatch)
-            Y = next(yBatch)
-        else:
-            X = xVals
-            Y = yVals
         for i in range(epochs):
+            if minibatches:
+                X = next(xBatch)
+                Y = next(yBatch)
+                self.W1 = next(w1Batch)
+                self.W2 = next(w2Batch)
+
             print("Epoch: ", i)
             l1,l2 = self.__forward(X)
-            l2_delta = (Y - l2)*self.__sigmoidDerivative(np.dot(l1,self.W2))
+            diff = Y-l2
+            l2_delta = diff*self.__sigmoidDerivative(np.dot(l1,self.W2))
             l1_delta = (np.dot(l2_delta,self.W2))*self.__sigmoidDerivative(np.dot(X,self.W1))
             l1_adj = np.dot(X,l1_delta)*self.lr
             l2_adj = np.dot(l1,l2_delta)*self.lr
@@ -77,8 +84,11 @@ class NeuralNetwork_2Layer():
 
     # Forward pass.
     def __forward(self, input):
+        print("Input shape: ", input.shape)
         layer1 = self.__sigmoid(np.dot(input, self.W1))
+        print("Layer1 shape: ", layer1.shape)
         layer2 = self.__sigmoid(np.dot(layer1, self.W2))
+        print("Layer2 shape: ", layer2.shape)
         return layer1, layer2
 
     # Predict.
@@ -130,9 +140,11 @@ def trainModel(data):
     if ALGORITHM == "guesser":
         return None   # Guesser has no model, as it is just guessing.
     elif ALGORITHM == "custom_net":
-        print("Building and training Custom_NN.")
-        nn = NeuralNetwork_2Layer(np.size(xTrain),np.size(yTrain),10) 
-        nn.train(xTrain,yTrain)        
+        print("Building Custom_NN.")
+        neurons = 12
+        nn = NeuralNetwork_2Layer(xTrain.shape[1],yTrain.shape[1],neurons) 
+        print("Training Custom NN")
+        nn.train(xTrain,yTrain,minibatches=False)        
         return nn
     elif ALGORITHM == "tf_net":
         print("Building and training TF_NN.")
