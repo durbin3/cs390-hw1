@@ -10,13 +10,12 @@ import random
 # Setting random seeds to keep everything deterministic.
 random.seed(1618)
 np.random.seed(1618)
-tf.set_random_seed(1618)   # Uncomment for TF1.
+# tf.set_random_seed(1618)   # Uncomment for TF1.
 # tf.random.set_seed(1618)
 
 # Disable some troublesome logging.
-#tf.logging.set_verbosity(tf.logging.ERROR)   # Uncomment for TF1.
+# tf.logging.set_verbosity(tf.logging.ERROR)   # Uncomment for TF1.
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
 # Information on dataset.
 NUM_CLASSES = 10
 IMAGE_SIZE = 784
@@ -36,7 +35,6 @@ class NeuralNetwork_2Layer():
         self.outputSize = outputSize
         self.neuronsPerLayer = neuronsPerLayer
         self.lr = learningRate
-        print("assigning weights")
         self.W1 = np.random.randn(self.inputSize, self.neuronsPerLayer)
         self.W2 = np.random.randn(self.neuronsPerLayer, self.outputSize)
 
@@ -47,7 +45,7 @@ class NeuralNetwork_2Layer():
     # Activation prime function.
     def __sigmoidDerivative(self, x):
         sig = self.__sigmoid(x)
-        return sig-(1-sig)
+        return sig*(1-sig)
 
     # Batch generator for mini-batches. Not randomized.
     def __batchGenerator(self, l, n):
@@ -56,39 +54,31 @@ class NeuralNetwork_2Layer():
 
     # Training with backpropagation.
     def train(self, xVals, yVals, epochs = 100000, minibatches = True, mbs = 100):
-        print("Training NN")
         X = xVals
         Y = yVals
-        if minibatches:
-            xBatch = self.__batchGenerator(xVals,mbs)
-            w1Batch = self.__batchGenerator(self.W1,mbs)
-            w2Batch = self.__batchGenerator(self.W2,mbs)
-            yBatch = self.__batchGenerator(yVals,mbs) 
+        # if minibatches:
+        #     xBatch = self.__batchGenerator(xVals,mbs)
+        #     w1Batch = self.__batchGenerator(self.W1,mbs)
+        #     w2Batch = self.__batchGenerator(self.W2,mbs)
+        #     yBatch = self.__batchGenerator(yVals,mbs) 
         for i in range(epochs):
-            if minibatches:
-                X = next(xBatch)
-                Y = next(yBatch)
-                self.W1 = next(w1Batch)
-                self.W2 = next(w2Batch)
-
-            print("Epoch: ", i)
+            # if minibatches:
+            #     X = next(xBatch)
+            #     Y = next(yBatch)
+            #     self.W1 = next(w1Batch)
+            #     self.W2 = next(w2Batch)
             l1,l2 = self.__forward(X)
-            diff = Y-l2
-            l2_delta = diff*self.__sigmoidDerivative(np.dot(l1,self.W2))
-            l1_delta = (np.dot(l2_delta,self.W2))*self.__sigmoidDerivative(np.dot(X,self.W1))
-            l1_adj = np.dot(X,l1_delta)*self.lr
-            l2_adj = np.dot(l1,l2_delta)*self.lr
-            self.W1 = self.W1 - l1_adj
-            self.W2 = self.W2 - l2_adj
+            l2_delta = (l2-Y)*(l2*(1-l2))
+            l1_delta = (l2_delta.dot(self.W2.T))*(l1*(1-l1))
+            l1_adj = (X.T.dot(l1_delta))*self.lr
+            l2_adj = (l1.T.dot(l2_delta))*self.lr
+            self.W1 -= l1_adj
+            self.W2 -= l2_adj
             
-
     # Forward pass.
     def __forward(self, input):
-        print("Input shape: ", input.shape)
         layer1 = self.__sigmoid(np.dot(input, self.W1))
-        print("Layer1 shape: ", layer1.shape)
         layer2 = self.__sigmoid(np.dot(layer1, self.W2))
-        print("Layer2 shape: ", layer2.shape)
         return layer1, layer2
 
     # Predict.
@@ -96,7 +86,16 @@ class NeuralNetwork_2Layer():
         _, layer2 = self.__forward(xVals)
         return layer2
 
-
+    # Run
+    def run(self, xTest):
+        preds = []
+        for entry in xTest:
+            output = self.predict(entry)
+            pred = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            pred[np.argmax(output)] = 1
+            preds.append(pred)
+            
+        return np.array(preds)
 
 # Classifier that just guesses the class label.
 def guesserClassifier(xTest):
@@ -125,6 +124,8 @@ def getRawData():
 def preprocessData(raw):
     ((xTrain, yTrain), (xTest, yTest)) = raw
     xTrain, xTest = xTrain / 255.0, xTest / 255.0
+    xTrain = xTrain.reshape(xTrain.shape[0], 28*28)
+    xTest = xTest.reshape(xTest.shape[0], 28*28)
     yTrainP = to_categorical(yTrain, NUM_CLASSES)
     yTestP = to_categorical(yTest, NUM_CLASSES)
     print("New shape of xTrain dataset: %s." % str(xTrain.shape))
@@ -141,10 +142,10 @@ def trainModel(data):
         return None   # Guesser has no model, as it is just guessing.
     elif ALGORITHM == "custom_net":
         print("Building Custom_NN.")
-        neurons = 12
-        nn = NeuralNetwork_2Layer(xTrain.shape[1],yTrain.shape[1],neurons) 
+        neurons = 15
+        nn = NeuralNetwork_2Layer(xTrain.shape[1],yTrain.shape[1],neurons,.0003) 
         print("Training Custom NN")
-        nn.train(xTrain,yTrain,minibatches=False)        
+        nn.train(xTrain,yTrain,epochs=500,minibatches=False)        
         return nn
     elif ALGORITHM == "tf_net":
         print("Building and training TF_NN.")
@@ -160,8 +161,7 @@ def runModel(data, model):
         return guesserClassifier(data)
     elif ALGORITHM == "custom_net":
         print("Testing Custom_NN.")
-        print("Not yet implemented.")                   #TODO: Write code to run your custon neural net.
-        return None
+        return model.run(data)
     elif ALGORITHM == "tf_net":
         print("Testing TF_NN.")
         print("Not yet implemented.")                   #TODO: Write code to run your keras neural net.
