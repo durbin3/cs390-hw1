@@ -6,6 +6,8 @@ from tensorflow import keras
 from tensorflow.keras.utils import to_categorical
 import random
 
+from tensorflow.python.util import lazy_loader
+
 
 # Setting random seeds to keep everything deterministic.
 random.seed(1618)
@@ -23,8 +25,8 @@ IMAGE_SIZE = 784
 
 # Use these to set the algorithm to use.
 # ALGORITHM = "guesser"
-# ALGORITHM = "custom_net"
-ALGORITHM = "tf_net"
+ALGORITHM = "custom_net"
+# ALGORITHM = "tf_net"
 
 
 
@@ -71,7 +73,8 @@ class NeuralNetwork_2Layer():
         X = xVals
         Y = yVals
         for i in range(epochs):
-            print("Epoch: ", i)
+            if i % 50 == 0:
+                print("Epoch: ", i)
             if minibatches:
                 xBatch = self.__batchGenerator(xVals,mbs)
                 yBatch = self.__batchGenerator(yVals,mbs) 
@@ -91,8 +94,6 @@ class NeuralNetwork_2Layer():
             comp_layer = self.__activation(np.dot(xVals, weights))
             xVals = comp_layer
             layers.append(comp_layer)
-        # layer1 = self.__sigmoid(np.dot(input, self.W1))
-        # layer2 = self.__sigmoid(np.dot(layer1, self.W2))
         return layers
 
     def __backprop(self, X, Y):
@@ -112,7 +113,6 @@ class NeuralNetwork_2Layer():
         firstDelta = error * self.__activationDerivative(X.dot(self.weights[l]))
         deltas.append(firstDelta)
 
-        adjustments = []
         l = len(deltas)
         xVals = X
         for i in range(l):
@@ -120,15 +120,6 @@ class NeuralNetwork_2Layer():
             adj = xVals.T.dot(deltas[l])*self.lr
             self.weights[i] -= adj
             xVals = layers[i]
-
-
-        # l1,l2 = self.__forward(X)
-        # l2_delta = (l2-Y)*(l2*(1-l2))
-        # l1_delta = (l2_delta.dot(self.W2.T))*(l1*(1-l1))
-        # l1_adj = (X.T.dot(l1_delta))*self.lr
-        # l2_adj = (l1.T.dot(l2_delta))*self.lr
-        # self.W1 -= l1_adj
-        # self.W2 -= l2_adj
 
     # Predict.
     def predict(self, xVals):
@@ -192,24 +183,24 @@ def trainModel(data):
     elif ALGORITHM == "custom_net":
         print("Building Custom_NN.")
         neurons = 15
-        nn = NeuralNetwork_2Layer(xTrain.shape[1],yTrain.shape[1],neurons,.0001, layers=2) 
+        nn = NeuralNetwork_2Layer(xTrain.shape[1],yTrain.shape[1],neurons,.0003, layers=2) 
         print("Training Custom NN")
-        nn.train(xTrain,yTrain,epochs=250,minibatches=False)        
+        nn.train(xTrain,yTrain,epochs=500,minibatches=False)        
         return nn
     elif ALGORITHM == "tf_net":
         print("Building and training TF_NN.")
         model = tf.keras.models.Sequential([
-              tf.keras.layers.Dense(512, activation='relu'),
-              tf.keras.layers.Dense(256, activation='sigmoid'),
-              tf.keras.layers.Dense(128, activation='sigmoid'),
-              tf.keras.layers.Dense(64, activation='sigmoid'),
-              tf.keras.layers.Dense(32, activation='relu'),
+              tf.keras.layers.Dense(256, activation='relu'),
+            #   tf.keras.layers.Dense(256, activation='relu'),
+            #   tf.keras.layers.Dense(128, activation='sigmoid'),
+            #   tf.keras.layers.Dense(64, activation='sigmoid'),
+            #   tf.keras.layers.Dense(32, activation='relu'),
               tf.keras.layers.Dropout(.2),
               tf.keras.layers.Dense(10)
         ])
         loss = tf.keras.losses.MeanSquaredError()
         model.compile(optimizer='adam', loss=loss,metrics=['accuracy'])
-        model.fit(xTrain, yTrain, epochs=20)
+        model.fit(xTrain, yTrain, epochs=40)
         return model
     else:
         raise ValueError("Algorithm not recognized.")
